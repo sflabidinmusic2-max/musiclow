@@ -1,4 +1,4 @@
-name: music
+name: musiclow
 
 on:
   workflow_dispatch:
@@ -43,8 +43,8 @@ jobs:
           Write-Host "`n============================"
           Write-Host "✅ RDP Connected Successfully"
           Write-Host "IP Address (Tailscale): $env:TS_IP"
-          Write-Host "Username: $env:runneradmin"
-          Write-Host "Password: $env:P@ssw0rd!"
+          Write-Host "Username: $env:RDP_USER"
+          Write-Host "Password: $env:RDP_PASS"
           Write-Host "============================`n"
 
       - name: Keep Alive
@@ -53,3 +53,4 @@ jobs:
             Write-Host "[$(Get-Date)] RDP Running..."
             Start-Sleep -Seconds 300
           }
+
