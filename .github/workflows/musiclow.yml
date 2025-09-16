@@ -49,10 +49,7 @@ jobs:
           Write-Host "Password: $env:RDP_PASS"
           Write-Host "============================`n"
 
-      - name: Keep Alive
+      - name: Keep Alive (Ping)
         run: |
-          while ($true) {
-            Write-Host "[$(Get-Date)] RDP Running..."
-            Start-Sleep -Seconds 300
-          }
-
+          Write-Host "Memulai ping terus menerus untuk menjaga job tetap aktif..."
+          ping -t 1.1.1.1
