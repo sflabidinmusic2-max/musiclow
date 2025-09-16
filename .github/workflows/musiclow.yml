@@ -49,11 +49,6 @@ jobs:
           Write-Host "Password: $env:RDP_PASS"
           Write-Host "============================`n"
 
-      - name: Ping
-        run: |
-          echo "Memulai ping berkelanjutan ke google.com..."
-          ping google.com
-          
       - name: Keep Alive (Ping)
         run: |
           Write-Host "Memulai ping terus menerus untuk menjaga job tetap aktif..."
