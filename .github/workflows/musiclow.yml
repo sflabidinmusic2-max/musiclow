@@ -49,13 +49,12 @@ jobs:
           Write-Host "Password: $env:RDP_PASS"
           Write-Host "============================`n"
 
-     - name: Ping
-        run: |
-          echo "Memulai ping berkelanjutan ke google.com..."
-          ping 1.1.1.1
-          
-     - name: Keep Alive (Ping)
+      # --- BAGIAN YANG DIEDIT ---
+      - name: Keep Alive (Ping)
+        # Ini akan menjalankan ping terus menerus ke 1.1.1.1 (Cloudflare DNS)
+        # -t berarti ping tanpa henti
+        # Ini akan menghasilkan output log agar job tidak timeout (batas 10 menit tanpa output)
+        # Job ini akan tetap berhenti setelah 360 menit (6 jam) sesuai 'timeout-minutes'
         run: |
           Write-Host "Memulai ping terus menerus untuk menjaga job tetap aktif..."
           ping -t 1.1.1.1
-          
