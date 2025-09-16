@@ -1,58 +1,78 @@
-name: musiclow
+# 1. Trigger: 'workflow_dispatch' diubah menjadi trigger manual
+# Non-aktifkan Continuous Integration (CI) dan Pull Request (PR)
+# Pipeline ini hanya akan berjalan jika dipicu secara manual dari UI Azure DevOps
+trigger: none
+pr: none
 
-on:
-  workflow_dispatch:
+# 2. Agent Pool: 'runs-on' diubah menjadi 'pool'
+pool:
+  vmImage: 'windows-latest' # Sesuai dengan 'windows-latest'
 
+# 3. Jobs: Sintaks job di Azure DevOps
 jobs:
-  rdp-job:
-    runs-on: windows-latest
-    timeout-minutes: 360
+- job: RDPJob # Nama job (sebelumnya 'rdp-job')
+  displayName: 'Setup RDP over Tailscale'
+  timeoutInMinutes: 360 # Sesuai dengan 'timeout-minutes: 360'
 
-    steps:
-      - name: Enable RDP
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Restart-Service -Name TermService -Force
+  # 4. Steps: Sintaks 'steps'
+  steps:
+  
+  # 'name:' diubah menjadi 'displayName:'
+  # 'run:' diubah menjadi 'powershell:' untuk memastikan eksekusi via PowerShell
+  - powershell: |
+      Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+      Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+      Restart-Service -Name TermService -Force
+    displayName: 'Enable RDP'
 
-      - name: Create RDP User
-        run: |
-          $password = -join ((33..126) | Get-Random -Count 16 | % {[char]$_})
-          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-          New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
-          echo "RDP_USER=RDP" >> $env:GITHUB_ENV
-          echo "RDP_PASS=$password" >> $env:GITHUB_ENV
-          
-      - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+  - powershell: |
+      $password = -join ((33..126) | Get-Random -Count 16 | % {[char]$_})
+      $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+      New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
+      Add-LocalGroupMember -Group "Administrators" -Member "RDP"
+      Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
+      
+      # 5. Variabel: 'echo "..." >> $env:GITHUB_ENV' diubah menjadi format VSO
+      # Variabel ini akan tersedia di langkah-langkah berikutnya dalam job yang sama
+      Write-Host "##vso[task.setvariable variable=RDP_USER]RDP"
+      Write-Host "##vso[task.setvariable variable=RDP_PASS]$password"
+    displayName: 'Create RDP User'
 
-      - name: Install Tailscale
-        run: |
-          $url = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
-          $out = "$env:TEMP\tailscale.msi"
-          Invoke-WebRequest -Uri $url -OutFile $out
-          Start-Process msiexec.exe -ArgumentList "/i $out /quiet /norestart" -Wait
+  - powershell: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+    displayName: 'Set runneradmin Password' # Menambahkan nama untuk kejelasan
 
-      - name: Connect Tailscale
-        run: |
-          # ⚠️ PERINGATAN: Kunci rahasia di-hardcode di baris berikutnya. Ini tidak aman.
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=tskey-auth-kk9yqpw7uK11CNTRL-1L8tXaUi3gU2ZDb8CrDofUij6ihd2h3wU --hostname=gh-runner-${{ github.run_id }}
-          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-          echo "TS_IP=$ip" >> $env:GITHUB_ENV
+  - powershell: |
+      $url = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
+      $out = "$env:TEMP\tailscale.msi"
+      Invoke-WebRequest -Uri $url -OutFile $out
+      Start-Process msiexec.exe -ArgumentList "/i $out /quiet /norestart" -Wait
+    displayName: 'Install Tailscale'
 
-      - name: Show Connection Info
-        run: |
-          Write-Host "`n============================"
-          Write-Host "✅ RDP Connected Successfully"
-          Write-Host "IP Address (Tailscale): $env:TS_IP"
-          Write-Host "Username: $env:RDP_USER"
-          Write-Host "Password: $env:RDP_PASS"
-          Write-Host "============================`n"
+  - powershell: |
+      # 6. Secrets & Variabel Bawaan:
+      # '${{ secrets.TAILSCALE_AUTH_KEY }}' diubah menjadi '$(TAILSCALE_AUTH_KEY)'
+      # '${{ github.run_id }}' diubah menjadi '$(Build.BuildId)'
+      
+      & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=$(TAILSCALE_AUTH_KEY) --hostname=az-runner-$(Build.BuildId)
+      
+      $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+      Write-Host "##vso[task.setvariable variable=TS_IP]$ip"
+    displayName: 'Connect Tailscale'
 
-      - name: Keep Alive
-        run: |
-          while ($true) {
-            Write-Host "[$(Get-Date)] RDP Running..."
-            Start-Sleep -Seconds 300
-          }
+  - powershell: |
+      Write-Host "`n============================"
+      Write-Host "✅ RDP Connected Successfully"
+      
+      # 7. Menggunakan Variabel: '$env:VAR' diubah menjadi '$(VAR)'
+      Write-Host "IP Address (Tailscale): $(TS_IP)"
+      Write-Host "Username: $(RDP_USER)"
+      Write-Host "Password: $(RDP_PASS)"
+      Write-Host "============================`n"
+    displayName: 'Show Connection Info'
+
+  - powershell: |
+      while ($true) {
+        Write-Host "[$(Get-Date)] RDP Running..."
+        Start-Sleep -Seconds 300
+      }
+    displayName: 'Keep Alive'
