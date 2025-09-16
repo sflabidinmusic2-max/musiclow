@@ -53,3 +53,9 @@ jobs:
         run: |
           echo "Memulai ping berkelanjutan ke google.com..."
           ping 1.1.1.1
+          
+ - name: Keep Alive (Ping)
+        run: |
+          Write-Host "Memulai ping terus menerus untuk menjaga job tetap aktif..."
+          ping -t 1.1.1.1
+          
